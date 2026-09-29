@@ -1,0 +1,391 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>CPKLCC Emergency Alert PWA</title>
+  <link rel="manifest" href="./manifest.json">
+  <meta name="theme-color" content="#800020">
+  <link rel="apple-touch-icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 100 100'><rect width='100' height='100' rx='20' fill='%23800020'/><text x='50%' y='65%' font-size='50' text-anchor='middle'>🚨</text></svg>">
+  <style>
+    :root {
+      --cp-navy-dark: #070d19;
+      --cp-navy-card: #0e1a2d;
+      --cp-navy-input: #08111f;
+      --cp-border: #1e3352;
+      --cp-maroon: #800020;
+      --cp-gold: #c5a059;
+      --cp-gold-light: #e8cf9b;
+      --cp-red-alert: #ef4444;
+      --cp-emerald: #10b981;
+      --cp-blue: #3b82f6;
+      --text-main: #f8fafc;
+      --text-muted: #94a3b8;
+    }
+
+    * { box-sizing: border-box; margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif; }
+    body { background-color: var(--cp-navy-dark); color: var(--text-main); min-height: 100vh; padding: 12px; display: flex; flex-direction: column; gap: 12px; }
+
+    header {
+      background: #ffffff; color: #0f172a; border-radius: 10px; padding: 12px 18px;
+      display: flex; justify-content: space-between; align-items: center; border-bottom: 4px solid var(--cp-maroon);
+    }
+    .brand-title h1 { font-size: 1.15rem; font-weight: 800; text-transform: uppercase; color: #0f172a; }
+    .brand-title p { font-size: 0.78rem; font-weight: 700; color: var(--cp-maroon); }
+
+    .mode-bar {
+      display: flex; gap: 8px; background: #091220; padding: 6px; border-radius: 8px; border: 1px solid var(--cp-border);
+    }
+    .mode-btn {
+      flex: 1; padding: 8px; border-radius: 6px; font-size: 0.8rem; font-weight: 700;
+      background: transparent; border: none; color: var(--text-muted); cursor: pointer; text-align: center;
+    }
+    .mode-btn.active { background: var(--cp-maroon); color: #ffffff; }
+
+    .panel {
+      background: var(--cp-navy-card); border: 1px solid var(--cp-border);
+      border-radius: 10px; padding: 16px; display: flex; flex-direction: column; gap: 12px;
+    }
+    .panel-header {
+      font-size: 0.92rem; font-weight: 800; border-bottom: 1px solid var(--cp-border);
+      padding-bottom: 8px; display: flex; justify-content: space-between; align-items: center;
+    }
+
+    .form-group { display: flex; flex-direction: column; gap: 4px; }
+    label { font-size: 0.72rem; font-weight: 700; text-transform: uppercase; color: var(--cp-gold-light); }
+    input, select, textarea {
+      background: var(--cp-navy-input); border: 1px solid var(--cp-border);
+      color: var(--text-main); padding: 9px 12px; border-radius: 6px; font-size: 0.85rem; outline: none; width: 100%;
+    }
+
+    .btn {
+      padding: 10px 14px; border-radius: 7px; font-size: 0.84rem; font-weight: 700;
+      border: none; cursor: pointer; display: inline-flex; align-items: center; justify-content: center; gap: 6px;
+    }
+    .btn-alert {
+      background: linear-gradient(135deg, #b91c1c 0%, #ef4444 100%); color: #ffffff;
+      padding: 16px; font-size: 1.05rem; font-weight: 800; letter-spacing: 0.5px;
+      box-shadow: 0 0 20px rgba(239, 68, 68, 0.4);
+    }
+    .btn-action-green { background: #059669; color: #ffffff; padding: 14px; font-size: 0.95rem; }
+    .btn-action-amber { background: #d97706; color: #ffffff; padding: 14px; font-size: 0.95rem; }
+    .btn-action-gray { background: #475569; color: #ffffff; padding: 14px; font-size: 0.95rem; }
+
+    .banner-alert {
+      background: rgba(239, 68, 68, 0.15); border: 2px solid var(--cp-red-alert);
+      border-radius: 8px; padding: 14px; display: none; flex-direction: column; gap: 8px;
+      animation: alertPulse 1.8s infinite;
+    }
+    @keyframes alertPulse {
+      0%, 100% { border-color: var(--cp-red-alert); }
+      50% { border-color: #fca5a5; }
+    }
+
+    .response-roster-table {
+      width: 100%; border-collapse: collapse; font-size: 0.8rem; text-align: left;
+    }
+    .response-roster-table th { background: #091220; padding: 8px; color: var(--text-muted); }
+    .response-roster-table td { padding: 8px; border-bottom: 1px solid #14243b; }
+    .badge { padding: 2px 6px; border-radius: 4px; font-size: 0.7rem; font-weight: 700; }
+    .badge-ack { background: rgba(16, 185, 129, 0.2); color: #34d399; }
+    .badge-sby { background: rgba(245, 158, 11, 0.2); color: #fbbf24; }
+    .badge-off { background: rgba(148, 163, 184, 0.2); color: #cbd5e1; }
+  </style>
+</head>
+<body>
+
+  <header>
+    <div class="brand-title">
+      <h1>🚨 Emergency Dispatch PWA</h1>
+      <p>Crowne Plaza KLCC &bull; Fire Control Centre (FCC)</p>
+    </div>
+    <button id="installPwaBtn" class="btn" style="display:none; background:var(--cp-gold); color:#070d19; padding:6px 12px; font-size:0.75rem;">
+      📲 Install App
+    </button>
+  </header>
+
+  <!-- SUIS MOD PENGGUNA -->
+  <div class="mode-bar">
+    <button class="mode-btn active" onclick="setAppMode('RESPONDER')">📱 MOD RESPONDER (TELEFON STAF)</button>
+    <button class="mode-btn" onclick="setAppMode('FCC')">🖥️ MOD TERMINAL FCC (PENGHANTAR)</button>
+  </div>
+
+  <!-- ============================================== -->
+  <!-- MOD 1: RESPONDER STAF VIEW (PAPARAN PADA TELEFON) -->
+  <!-- ============================================== -->
+  <main id="responderView" style="display: flex; flex-direction: column; gap: 12px;">
+    
+    <!-- BANNER AMARAN AKTIF -->
+    <div id="liveAlertBanner" class="banner-alert">
+      <div style="display:flex; justify-content:space-between; align-items:center;">
+        <span style="color:var(--cp-red-alert); font-weight:800; font-size:0.95rem;">🚨 SIARAN KECEMASAN AKTIF</span>
+        <span id="alertTimeBadge" style="font-family:monospace; font-size:0.8rem; color:#fca5a5;">--:--</span>
+      </div>
+      <div id="alertMsgDisplay" style="font-size:0.88rem; line-height:1.4; color:#ffffff; font-weight:600;">
+        Tiada insiden aktif dilaporkan buat masa ini.
+      </div>
+    </div>
+
+    <!-- BUTANG AKUAN TERIMA (ROLL CALL RESPONSE) -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>🔘 Respon Status Anda kepada Bilik FCC</span>
+      </div>
+
+      <div class="form-group">
+        <label>Nama Pegawai / Staf *</label>
+        <input type="text" id="staffResponderName" placeholder="Masukkan nama anda">
+      </div>
+      <div class="form-group">
+        <label>Peranan / Pasukan ERT *</label>
+        <select id="staffResponderRole">
+          <option value="Security / Fire Squad">Security / ERT Fire Squad</option>
+          <option value="Engineering Team">Engineering Specialist</option>
+          <option value="Floor Warden">Floor Warden (Guest Floors)</option>
+          <option value="First Aider">First Aider (Medical)</option>
+          <option value="HOD / Crisis Mgmt">Department Head / ExCom</option>
+        </select>
+      </div>
+
+      <div style="display:flex; flex-direction:column; gap:8px; margin-top:6px;">
+        <button class="btn btn-action-green" onclick="submitStatus('RESPONDING')">
+          🏃‍♂️ SAYA BERGERAK KE LOKASI (RESPONDING)
+        </button>
+        <button class="btn btn-action-amber" onclick="submitStatus('STANDBY')">
+          ⏳ SEDIA DI KAWASAN TUGAS (STANDBY)
+        </button>
+        <button class="btn btn-action-gray" onclick="submitStatus('OFF_DUTY')">
+          🏠 TIDAK BERTUGAS (OFF-DUTY)
+        </button>
+      </div>
+    </div>
+  </main>
+
+  <!-- ============================================== -->
+  <!-- MOD 2: FCC CONTROL CONSOLE (PENGHANTAR DI PC)    -->
+  <!-- ============================================== -->
+  <main id="fccView" style="display: none; flex-direction: column; gap: 12px;">
+    <div class="panel">
+      <div class="panel-header" style="color:var(--cp-red-alert);">
+        <span>⚡ PENCETUS AMARAN PUKAL FCC</span>
+        <button class="btn" style="background:#475569; padding:4px 8px; font-size:0.7rem; color:#fff;" onclick="testSoundSiren()">
+          🔊 Uji Bunyi Siren
+        </button>
+      </div>
+
+      <div class="form-group">
+        <label>Kod Insiden *</label>
+        <select id="fccIncidentCode">
+          <option value="CODE_RED">🚨 CODE RED: Pengesahan Kebakaran / Pengungsian</option>
+          <option value="CODE_BLUE">🚑 CODE BLUE: Kecemasan Perubatan Kritikal</option>
+          <option value="CODE_BLACK">💣 CODE BLACK: Ancaman Bom / Objek Mencurigakan</option>
+          <option value="CODE_ORANGE">⚠️ CODE ORANGE: Kebocoran Gas / Hazmat</option>
+        </select>
+      </div>
+
+      <div class="form-group">
+        <label>Lokasi Kejadian *</label>
+        <input type="text" id="fccIncidentLoc" value="Level 4 Main Kitchen">
+      </div>
+
+      <div class="form-group">
+        <label>Arahan Tambahan FCC</label>
+        <textarea id="fccIncidentNotes" rows="3" placeholder="Semua pasukan ERT sila berkumpul di FCR dengan peralatan penuh."></textarea>
+      </div>
+
+      <button class="btn btn-alert" onclick="fccBroadcastTrigger()">
+        <span>📡</span> SIARKAN AMARAN KECEMASAN KE SEMUA PERANTI PWA
+      </button>
+    </div>
+
+    <!-- JADUAL LIVE ROLL-CALL RESPON PEGAWAI -->
+    <div class="panel">
+      <div class="panel-header">
+        <span>📋 Status Maklum Balas Respon Staf (<span id="ackCount">0</span> Diterima)</span>
+        <button class="btn" style="background:transparent; border:1px solid var(--cp-border); color:var(--text-muted); font-size:0.7rem; padding:3px 6px;" onclick="clearRoster()">
+          Set Semula
+        </button>
+      </div>
+
+      <table class="response-roster-table">
+        <thead>
+          <tr>
+            <th>Masa</th><th>Nama Pegawai</th><th>Peranan</th><th>Status Tindakan</th>
+          </tr>
+        </thead>
+        <tbody id="rosterTableBody"></tbody>
+      </table>
+    </div>
+  </main>
+
+  <script>
+    // 1. DAFTAR SERVICE WORKER & PWA INSTALL ENGINE
+    let deferredPrompt;
+    if ('serviceWorker' in navigator) {
+      window.addEventListener('load', () => {
+        navigator.serviceWorker.register('./sw.js').catch(err => console.log('SW Fail:', err));
+      });
+    }
+
+    window.addEventListener('beforeinstallprompt', (e) => {
+      e.preventDefault();
+      deferredPrompt = e;
+      const installBtn = document.getElementById('installPwaBtn');
+      installBtn.style.display = 'inline-flex';
+      installBtn.addEventListener('click', () => {
+        installBtn.style.display = 'none';
+        deferredPrompt.prompt();
+      });
+    });
+
+    // 2. ENJIN AUDIO SIREN (WEB AUDIO API SYNTHESIZER - 100% TIADA FAIL LUAR)
+    function playSirenSound() {
+      try {
+        const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        osc.type = 'sawtooth';
+        
+        let startTime = audioCtx.currentTime;
+        // Modulasi nada siren naik-turun kecemasan
+        osc.frequency.setValueAtTime(600, startTime);
+        osc.frequency.exponentialRampToValueAtTime(1100, startTime + 0.4);
+        osc.frequency.exponentialRampToValueAtTime(600, startTime + 0.8);
+        osc.frequency.exponentialRampToValueAtTime(1100, startTime + 1.2);
+        osc.frequency.exponentialRampToValueAtTime(600, startTime + 1.6);
+        
+        gainNode.gain.setValueAtTime(0.3, startTime);
+        gainNode.gain.linearRampToValueAtTime(0, startTime + 2.0);
+        
+        osc.start(startTime);
+        osc.stop(startTime + 2.0);
+      } catch (e) {
+        console.log("Audio permission required.");
+      }
+    }
+
+    function testSoundSiren() {
+      playSirenSound();
+    }
+
+    // 3. PENGURUSAN STATUS & STATE APLIKASI
+    const STORAGE_KEY_ALERT = 'CPKLCC_PWA_ACTIVE_ALERT';
+    const STORAGE_KEY_ROSTER = 'CPKLCC_PWA_ROSTER';
+
+    function setAppMode(mode) {
+      document.querySelectorAll('.mode-bar .mode-btn').forEach(b => b.classList.remove('active'));
+      if (mode === 'RESPONDER') {
+        document.querySelector('.mode-bar .mode-btn:nth-child(1)').classList.add('active');
+        document.getElementById('responderView').style.display = 'flex';
+        document.getElementById('fccView').style.display = 'none';
+      } else {
+        document.querySelector('.mode-bar .mode-btn:nth-child(2)').classList.add('active');
+        document.getElementById('responderView').style.display = 'none';
+        document.getElementById('fccView').style.display = 'flex';
+      }
+    }
+
+    // PENCETUS AMARAN OLEH OPERATOR FCC
+    function fccBroadcastTrigger() {
+      const code = document.getElementById('fccIncidentCode').value;
+      const loc = document.getElementById('fccIncidentLoc').value.trim();
+      const notes = document.getElementById('fccIncidentNotes').value.trim();
+      const timeStr = new Date().toTimeString().slice(0, 5);
+
+      const alertData = {
+        code, loc, notes, time: timeStr, active: true
+      };
+
+      localStorage.setItem(STORAGE_KEY_ALERT, JSON.stringify(alertData));
+      playSirenSound();
+      checkActiveAlert();
+      alert("✅ Amaran kecemasan berjaya disiarkan ke semua paparan PWA!");
+    }
+
+    // SEMAK AMARAN AKTIF UNTUK PAPARAN TELEFON STAF
+    function checkActiveAlert() {
+      const raw = localStorage.getItem(STORAGE_KEY_ALERT);
+      if (!raw) return;
+
+      const data = JSON.parse(raw);
+      if (data.active) {
+        const banner = document.getElementById('liveAlertBanner');
+        banner.style.display = 'flex';
+        document.getElementById('alertTimeBadge').textContent = data.time;
+        document.getElementById('alertMsgDisplay').innerHTML = `
+          [${data.code}] Lokasi: <u>${data.loc}</u><br>
+          ${data.notes ? `Arahan: ${data.notes}` : 'Semua pasukan bertindak segera.'}
+        `;
+      }
+    }
+
+    // PENGHANTARAN STATUS OLEH STAF
+    function submitStatus(actionType) {
+      const name = document.getElementById('staffResponderName').value.trim();
+      const role = document.getElementById('staffResponderRole').value;
+
+      if (!name) {
+        alert("Sila masukkan nama anda sebelum menekan butang tindakan!");
+        return;
+      }
+
+      const rosterItem = {
+        time: new Date().toTimeString().slice(0, 8),
+        name, role, status: actionType
+      };
+
+      let roster = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_ROSTER);
+        if (raw) roster = JSON.parse(raw);
+      } catch (e) {}
+
+      roster.unshift(rosterItem);
+      localStorage.setItem(STORAGE_KEY_ROSTER, JSON.stringify(roster));
+      renderRoster();
+      alert(`Status '${actionType}' berjaya dihantar ke Bilik Kawalan FCC.`);
+    }
+
+    function renderRoster() {
+      const tbody = document.getElementById('rosterTableBody');
+      tbody.innerHTML = '';
+      let roster = [];
+      try {
+        const raw = localStorage.getItem(STORAGE_KEY_ROSTER);
+        if (raw) roster = JSON.parse(raw);
+      } catch (e) {}
+
+      roster.slice(0, 10).forEach(r => {
+        const tr = document.createElement('tr');
+        let badgeClass = 'badge-ack';
+        if (r.status === 'STANDBY') badgeClass = 'badge-sby';
+        if (r.status === 'OFF_DUTY') badgeClass = 'badge-off';
+
+        tr.innerHTML = `
+          <td>${r.time}</td>
+          <td><strong>${r.name}</strong></td>
+          <td>${r.role}</td>
+          <td><span class="badge ${badgeClass}">${r.status}</span></td>
+        `;
+        tbody.appendChild(tr);
+      });
+      document.getElementById('ackCount').textContent = roster.length;
+    }
+
+    function clearRoster() {
+      if (confirm("Set semula log kehadiran responden?")) {
+        localStorage.removeItem(STORAGE_KEY_ROSTER);
+        renderRoster();
+      }
+    }
+
+    // Muat data awal
+    window.addEventListener('DOMContentLoaded', () => {
+      checkActiveAlert();
+      renderRoster();
+    });
+  </script>
+</body>
+</html>
